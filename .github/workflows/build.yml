@@ -2,6 +2,8 @@ name: Build APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main, master ]
 
 permissions:
   contents: write
@@ -12,49 +14,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unpack source
-        run: |
-          set -e
-          cat ErgoKeys-source.tar.gz.p[0-9][0-9] | base64 -d > src.tar.gz
-          echo "791266c809f19fed81121fee2e0cce0fff97030f6d8268b0ddf96d7205b391c3  src.tar.gz" | sha256sum -c -
-          mkdir -p src
-          tar -xzf src.tar.gz -C src
-
-      - name: Apply fixes
-        run: |
-          set -e
-          for base in ErgoPrefs.kt ErgoImeService.kt KeyboardView.kt SettingsActivity.kt; do
-            cat fix/$base.p* | base64 -d | gunzip > src/ErgoKeys/app/src/main/java/com/ergokeys/ime/$base
-            wc -l src/ErgoKeys/app/src/main/java/com/ergokeys/ime/$base
-          done
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Android SDK setup
+      - uses: android-actions/setup-android@v3
+
+      - name: Android SDK
         run: |
-          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" || true
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
       - name: Build debug APK
-        working-directory: src/ErgoKeys
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
           name: ErgoKeys-debug
-          path: src/ErgoKeys/app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/*.apk
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2-${{ github.run_number }}
+          tag_name: v3-${{ github.run_number }}
           name: ErgoKeys APK
-          files: src/ErgoKeys/app/build/outputs/apk/debug/*.apk
+          files: app/build/outputs/apk/debug/*.apk
