@@ -19,7 +19,14 @@ jobs:
           echo "791266c809f19fed81121fee2e0cce0fff97030f6d8268b0ddf96d7205b391c3  src.tar.gz" | sha256sum -c -
           mkdir -p src
           tar -xzf src.tar.gz -C src
-          ls src/ErgoKeys
+
+      - name: Apply fixes
+        run: |
+          set -e
+          for base in ErgoPrefs.kt ErgoImeService.kt KeyboardView.kt SettingsActivity.kt; do
+            cat fix/$base.p* | base64 -d | gunzip > src/ErgoKeys/app/src/main/java/com/ergokeys/ime/$base
+            wc -l src/ErgoKeys/app/src/main/java/com/ergokeys/ime/$base
+          done
 
       - uses: actions/setup-java@v4
         with:
@@ -29,14 +36,8 @@ jobs:
       - name: Android SDK setup
         run: |
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools" || true
-
-      - name: Keep local.properties out
-        run: |
-          ls -l src/ErgoKeys
-          cat src/ErgoKeys/settings.gradle* || true
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" || true
 
       - uses: gradle/actions/setup-gradle@v4
         with:
@@ -54,6 +55,6 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1-${{ github.run_number }}
+          tag_name: v2-${{ github.run_number }}
           name: ErgoKeys APK
           files: src/ErgoKeys/app/build/outputs/apk/debug/*.apk
