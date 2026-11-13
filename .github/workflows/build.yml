@@ -1,0 +1,52 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unpack source
+        run: |
+          cat ErgoKeys-source.tar.gz.part_* | base64 -d > src.tar.gz
+          mkdir -p src
+          tar -xzf src.tar.gz -C src
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Accept licenses
+        run: yes | sdkmanager --licenses || true
+
+      - name: Install SDK 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        working-directory: src/ErgoKeys
+        run: gradle :app:assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ErgoKeys-debug
+          path: src/ErgoKeys/app/build/outputs/apk/debug/*.apk
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1-${{ github.run_number }}
+          name: ErgoKeys APK
+          files: src/ErgoKeys/app/build/outputs/apk/debug/*.apk
